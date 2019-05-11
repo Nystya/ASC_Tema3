@@ -91,6 +91,10 @@ class GpuHashTable
 		void print(string info);
 	
 		~GpuHashTable();
+	
+	private:
+		unsigned int *table;
+		unsigned int *keys;
 };
 
 #endif
