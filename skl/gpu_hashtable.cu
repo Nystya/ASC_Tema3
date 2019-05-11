@@ -10,7 +10,7 @@
 /* INIT HASH
  */
 GpuHashTable::GpuHashTable(int size) {	
-	this->reshape();
+	this->reshape(10);
 }
 
 /* DESTROY HASH
