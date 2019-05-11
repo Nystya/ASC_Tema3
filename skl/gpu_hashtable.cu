@@ -9,17 +9,14 @@
 
 /* INIT HASH
  */
-GpuHashTable::GpuHashTable(int size) {
-	unsigned int *table;
-
-	cudaMalloc(&(&table), size * sizeof(unsigned int));
-	
+GpuHashTable::GpuHashTable(int size) {	
+	this->reshape();
 }
 
 /* DESTROY HASH
  */
 GpuHashTable::~GpuHashTable() {
-	//Ceva
+
 }
 
 /* RESHAPE HASH
