@@ -50,8 +50,8 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	for (i = 0; i < numKeys; i++) {
 		idx = hash1(keys[i], this->limit);
 		if (this->table[idx].value == NULL) {
-			this->table[idx].key = (unsigned int *) malloc(sizeof(int));
-			this->table[idx].value = (unsigned int *) malloc(sizeof(int));
+			this->table[idx].key = (int *) malloc(sizeof(int));
+			this->table[idx].value = (int *) malloc(sizeof(int));
 			memcpy(this->table[idx].key, &keys[i], sizeof(int));
 			memcpy(this->table[idx].value, &values[i], sizeof(int));
 		} else {
@@ -66,8 +66,8 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 				continue;
 			}
 
-			this->table[idx].key = (unsigned int *) malloc(sizeof(int));
-			this->table[idx].value = (unsigned int *) malloc(sizeof(int));
+			this->table[idx].key = (int *) malloc(sizeof(int));
+			this->table[idx].value = (int *) malloc(sizeof(int));
 			memcpy(this->table[idx].key, &keys[i], sizeof(int));
 			memcpy(this->table[idx].value, &values[i], sizeof(int));
 		}
