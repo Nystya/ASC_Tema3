@@ -32,7 +32,7 @@ GpuHashTable::~GpuHashTable() {
 	free(this->table);
 	this->table = NULL;
 
-	cout << "Init is done!\n";
+	cout <<2 "Init is done!\n";
 }
 
 /* RESHAPE HASH
@@ -125,7 +125,7 @@ float GpuHashTable::loadFactor() {
 
 /*********************************************************/
 
-#define HASH_INIT GpuHashTable GpuHashTable(1);
+#define HASH_INIT GpuHashTable GpuHashTable(100);
 #define HASH_RESERVE(size) GpuHashTable.reshape(size);
 
 #define HASH_BATCH_INSERT(keys, values, numKeys) GpuHashTable.insertBatch(keys, values, numKeys)
