@@ -81,19 +81,19 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int idx;
 	int auxidx;
 	int *result = (int *) malloc(numKeys * sizeof(int));
-	
+
 	if (!result)
 		return NULL;
 
 	for (i = 0; i < numKeys; i++) {
 		idx = hash1(keys[i], this->limit);
 		
-		if (this->table[idx].key == keys[i]) {
-			result[i] = this->table[idx].value;
+		if (*(this->table[idx].key) == keys[i]) {
+			result[i] = *(this->table[idx].value);
 		} else {
 			auxidx = idx;
 			idx++;
-			while ( auxidx != idx && this->table[idx % this->limit].key != keys[i]) {
+			while ( auxidx != idx && *(this->table[idx % this->limit].key) != keys[i]) {
 				idx = (idx + 1) % this->limit;
 			}
 
@@ -101,7 +101,7 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 				return NULL;
 			}
 
-			result[i] = this->table[idx].value;
+			result[i] = *(this->table[idx].value);
 		}
 	}
 
