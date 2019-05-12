@@ -32,7 +32,7 @@ GpuHashTable::~GpuHashTable() {
 	free(this->table);
 	this->table = NULL;
 
-	cout >> "Init is done!\n";
+	cout << "Init is done!\n";
 }
 
 /* RESHAPE HASH
@@ -47,7 +47,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int idx;
 	int auxidx;
 
-	cout >> numKeys;
+	cout << numKeys;
 
 	for (i = 0; i < numKeys; i++) {
 		idx = hash1(keys[i], this->limit);
@@ -76,7 +76,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 		}
 	}
 
-	cout >> "Done adding items\n";
+	cout << "Done adding items\n";
 
 	return true;
 }
