@@ -7,21 +7,34 @@
 
 #include "gpu_hashtable.hpp"
 
+__global__ init_hashtable(Node *table, int size) {
+	int idx = blockIdx.x * blockDim.x + threadIdx.x;
+
+	if (idx < size) {
+		cout << "Adding on position " << idx << "\n";
+		table[idx].key = 0;
+		table[idx].value = 0;
+	}
+}
+
+// __global__ insert_value(Node *table, int size, int *keys, int *value) {
+// 	int key_idx = blockIdx.x * blockDim.x + threadIdx.x;
+// 	int idx;
+
+// 	if (key_idx < size)
+// 		idx = hash1(key_idx);
+
+// 	// atomicCAS(table->[idx].key, )
+// }
+
 /* INIT HASH
  */
 GpuHashTable::GpuHashTable(int size) {
-	// cudaMallocManaged(&this->table, size * sizeof(Node));
-	// if (!this->table)
-		// return NULL;
+	cudaSetDevice(0);
 
-	int i;
-
-	this->table = (Node *) malloc(size * sizeof(Node));
+	cudaMallocManaged(&this->table, size * sizeof(Node));
 	
-	for (i = 0; i < size; i++) {
-		this->table[i].key = NULL;
-		this->table[i].value = NULL;
-	}
+	add_arrays<<<size / BLOCKSIZE, BLOCKSIZE>>>(this->table, size);
 
 	this->limit = size;
 }
@@ -29,7 +42,7 @@ GpuHashTable::GpuHashTable(int size) {
 /* DESTROY HASH
  */
 GpuHashTable::~GpuHashTable() {
-	free(this->table);
+	cudaFree(this->table);
 	this->table = NULL;
 
 }
@@ -42,79 +55,17 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 /* INSERT BATCH
  */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
-	int i;
-	int idx;
-	int auxidx;
-
-	cout << "Adding " << numKeys << " items.\n";
-
-	for (i = 0; i < numKeys; i++) {
-		idx = hash1(keys[i], this->limit);
-		if (this->table[idx].value == NULL || *(this->table[idx].key) == keys[i]) {
-			this->table[idx].key = (int *) malloc(sizeof(int));
-			this->table[idx].value = (int *) malloc(sizeof(int));
-			memcpy(this->table[idx].key, &keys[i], sizeof(int));
-			memcpy(this->table[idx].value, &values[i], sizeof(int));
-
-			cout << "Adding " << values[i] << " on position " << idx << " for key " << keys[i] << "\n";
-		} else {
-			auxidx = idx;
-			idx = (idx + 1) % this->limit;
-
-			while (auxidx != idx && this->table[idx % this->limit].value != NULL)
-				idx = (idx + 1) % this->limit;
-			
-			if (auxidx == idx) {
-				reshape(this->limit);
-				i--;
-				continue;
-			}
-
-			this->table[idx].key = (int *) malloc(sizeof(int));
-			this->table[idx].value = (int *) malloc(sizeof(int));
-			memcpy(this->table[idx].key, &keys[i], sizeof(int));
-			memcpy(this->table[idx].value, &values[i], sizeof(int));
-
-			cout << "Collision: Adding " << values[i] << " on position " << idx << " for key " << keys[i] << "\n";
-		}
-	}
-
-	cout << "Done adding items\n";
-
 	return true;
 }
 
 /* GET BATCH
  */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
-	int i;
-	int idx;
-	int auxidx;
-	int *result = (int *) malloc(numKeys * sizeof(int));
+	int *result;
 
+	cudaMallocManaged(&result, numKeys * sizeof(Node));
 	if (!result)
 		return NULL;
-
-	for (i = 0; i < numKeys; i++) {
-		idx = hash1(keys[i], this->limit);
-		
-		if (*(this->table[idx].key) == keys[i]) {
-			result[i] = *(this->table[idx].value);
-		} else {
-			auxidx = idx;
-			idx = (idx + 1) % this->limit;
-
-			while ( auxidx != idx && *(this->table[idx % this->limit].key) != keys[i]) {
-				idx = (idx + 1) % this->limit;
-			}
-
-			if (auxidx == idx) {
-				return NULL;
-			}
-
-			result[i] = *(this->table[idx].value);
-		}
-	}
 
 	return result;
 }

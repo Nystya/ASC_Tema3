@@ -4,6 +4,7 @@
 using namespace std;
 
 #define	KEY_INVALID		0
+#define BLOCKSIZE 256
 
 #define DIE(assertion, call_description) \
 	do {	\
@@ -75,8 +76,8 @@ int hash3(int data, int limit) {
 }
 
 typedef struct {
-	int *key;
-	int *value;
+	int key;
+	int value;
 } Node;
 
 //
