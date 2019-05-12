@@ -17,8 +17,6 @@ GpuHashTable::GpuHashTable(int size) {
 	int i;
 
 	this->table = (Node *) malloc(size * sizeof(Node));
-	if(!this->table)
-		return NULL;
 	
 	for (i = 0; i < size; i++) {
 		this->table[i].key = NULL;
@@ -83,6 +81,7 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	int idx;
 	int auxidx;
 	int *result = (int *) malloc(numKeys * sizeof(int));
+	
 	if (!result)
 		return NULL;
 
