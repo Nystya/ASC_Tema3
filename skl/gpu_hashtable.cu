@@ -35,6 +35,8 @@ GpuHashTable::GpuHashTable(int size) {
 	
 	init_hashtable <<<size / BLOCKSIZE, BLOCKSIZE>>>(this->table, size);
 
+	cudaDeviceSynchronize();
+
 	for (int i = 0; i < size; i++) {
 		printf("[%d %d]\n", this->table[i].key, this->table[i].value);
 	}
