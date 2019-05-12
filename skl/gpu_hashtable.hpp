@@ -74,6 +74,11 @@ int hash3(int data, int limit) {
 	return ((long)abs(data) * primeList[70]) % primeList[93] % limit;
 }
 
+typedef struct {
+	int *key;
+	int *value;
+} Node;
+
 //
 // GPU HashTable
 //
@@ -93,8 +98,8 @@ class GpuHashTable
 		~GpuHashTable();
 	
 	private:
-		unsigned int *table;
-		unsigned int *keys;
+		Node *table;
+		int limit;
 };
 
 #endif

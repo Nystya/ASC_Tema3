@@ -9,14 +9,30 @@
 
 /* INIT HASH
  */
-GpuHashTable::GpuHashTable(int size) {	
-	this->reshape(10);
+GpuHashTable::GpuHashTable(int size) {
+	// cudaMallocManaged(&this->table, size * sizeof(Node));
+	// if (!this->table)
+		// return NULL;
+
+	int i;
+
+	this->table = (Node *) malloc(size * sizeof(Node));
+	if(!this->table)
+		return NULL;
+	
+	for (i = 0; i < size; i++) {
+		this->table[i].key = NULL;
+		this->table[i].value = NULL;
+	}
+
+	this->limit = size;
 }
 
 /* DESTROY HASH
  */
 GpuHashTable::~GpuHashTable() {
-
+	free(this->table);
+	this->table = NULL;
 }
 
 /* RESHAPE HASH
@@ -27,13 +43,70 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 /* INSERT BATCH
  */
 bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
-	return false;
+	int i;
+	int idx;
+	int auxidx;
+
+	for (i = 0; i < numKeys; i++) {
+		idx = hash1(keys[i], this->limit);
+		if (this->table[idx].value == NULL) {
+			this->table[idx].key = (unsigned int *) malloc(sizeof(int));
+			this->table[idx].value = (unsigned int *) malloc(sizeof(int));
+			memcpy(this->table[idx].key, &keys[i], sizeof(int));
+			memcpy(this->table[idx].value, &values[i], sizeof(int));
+		} else {
+			auxidx = idx;
+			idx++;
+			while (auxidx != idx && this->table[idx % this->limit].value != NULL)
+				idx = (idx + 1) % this->limit;
+			
+			if (auxidx == idx) {
+				reshape(this->limit);
+				i--;
+				continue;
+			}
+
+			this->table[idx].key = (unsigned int *) malloc(sizeof(int));
+			this->table[idx].value = (unsigned int *) malloc(sizeof(int));
+			memcpy(this->table[idx].key, &keys[i], sizeof(int));
+			memcpy(this->table[idx].value, &values[i], sizeof(int));
+		}
+	}
+
+	return true;
 }
 
 /* GET BATCH
  */
 int* GpuHashTable::getBatch(int* keys, int numKeys) {
-	return NULL;
+	int i;
+	int idx;
+	int auxidx;
+	int *result = (int *) malloc(numKeys * sizeof(int));
+	if (!result)
+		return NULL;
+
+	for (i = 0; i < numKeys; i++) {
+		idx = hash1(keys[i], this->limit);
+		
+		if (this->table[idx].key == keys[i]) {
+			result[i] = this->table[idx].value;
+		} else {
+			auxidx = idx;
+			idx++;
+			while ( auxidx != idx && this->table[idx % this->limit].key != keys[i]) {
+				idx = (idx + 1) % this->limit;
+			}
+
+			if (auxidx == idx) {
+				return NULL;
+			}
+
+			result[i] = this->table[idx].value;
+		}
+	}
+
+	return result;
 }
 
 /* GET LOAD FACTOR
