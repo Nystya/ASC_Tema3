@@ -50,7 +50,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 
 	for (i = 0; i < numKeys; i++) {
 		idx = hash1(keys[i], this->limit);
-		if (this->table[idx].value == NULL) {
+		if (this->table[idx].value == NULL || *(this->table[idx].key) == keys[i]) {
 			this->table[idx].key = (int *) malloc(sizeof(int));
 			this->table[idx].value = (int *) malloc(sizeof(int));
 			memcpy(this->table[idx].key, &keys[i], sizeof(int));
