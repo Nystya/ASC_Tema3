@@ -32,7 +32,7 @@ GpuHashTable::~GpuHashTable() {
 	free(this->table);
 	this->table = NULL;
 
-	cout <<2 "Init is done!\n";
+	cout << "Init is done!\n";
 }
 
 /* RESHAPE HASH
