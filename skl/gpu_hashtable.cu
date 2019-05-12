@@ -7,11 +7,10 @@
 
 #include "gpu_hashtable.hpp"
 
-__global__ init_hashtable(Node *table, int size) {
+__global__ void init_hashtable(Node *table, int size) {
 	int idx = blockIdx.x * blockDim.x + threadIdx.x;
 
 	if (idx < size) {
-		cout << "Adding on position " << idx << "\n";
 		table[idx].key = 0;
 		table[idx].value = 0;
 	}
@@ -34,7 +33,11 @@ GpuHashTable::GpuHashTable(int size) {
 
 	cudaMallocManaged(&this->table, size * sizeof(Node));
 	
-	add_arrays<<<size / BLOCKSIZE, BLOCKSIZE>>>(this->table, size);
+	init_hashtable <<<size / BLOCKSIZE, BLOCKSIZE>>>(this->table, size);
+
+	for (int i = 0; i < size; i++) {
+		printf("[%d %d]\n", this->table[i].key, this->table[i].value);
+	}
 
 	this->limit = size;
 }
