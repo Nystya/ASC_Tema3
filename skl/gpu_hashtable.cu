@@ -37,10 +37,6 @@ GpuHashTable::GpuHashTable(int size) {
 
 	cudaDeviceSynchronize();
 
-	for (int i = 0; i < size; i++) {
-		printf("[%d %d]\n", this->table[i].key, this->table[i].value);
-	}
-
 	this->limit = size;
 }
 
@@ -55,6 +51,18 @@ GpuHashTable::~GpuHashTable() {
 /* RESHAPE HASH
  */
 void GpuHashTable::reshape(int numBucketsReshape) {
+	Node *aux_table;
+
+	cudaMallocManaged(&aux_table, numBucketsReshape * sizeof(Node));
+
+	init_hashtable <<<numBucketsReshape / BLOCKSIZE, BLOCKSIZE>>>(this->table, numBucketsReshape);
+
+	cudaDeviceSynchronize();
+
+	cudaFree(this->table);
+	
+	this->table = aux_table;
+	this->limit = numBucketsReshape;
 }
 
 /* INSERT BATCH
@@ -84,7 +92,7 @@ float GpuHashTable::loadFactor() {
 
 /*********************************************************/
 
-#define HASH_INIT GpuHashTable GpuHashTable(100);
+#define HASH_INIT GpuHashTable GpuHashTable(1);
 #define HASH_RESERVE(size) GpuHashTable.reshape(size);
 
 #define HASH_BATCH_INSERT(keys, values, numKeys) GpuHashTable.insertBatch(keys, values, numKeys)

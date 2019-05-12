@@ -72,63 +72,63 @@ int main(int argc, char **argv)
 	int chunkSize = numKeys / numChunks;
 	HASH_RESERVE(chunkSize);
 	
-	// perform INSERT and test performance
-	for(int chunkStart = 0; chunkStart < numKeys; chunkStart += chunkSize) {
+	// // perform INSERT and test performance
+	// for(int chunkStart = 0; chunkStart < numKeys; chunkStart += chunkSize) {
 		
-		int* keysStart = &vecKeys[chunkStart];
-		int* valuesStart = &vecValues[chunkStart];
+	// 	int* keysStart = &vecKeys[chunkStart];
+	// 	int* valuesStart = &vecValues[chunkStart];
 		
-		begin = clock();
-		// insert stage
-		HASH_BATCH_INSERT(keysStart, valuesStart, chunkSize);
-		elapsedTime = double(clock() - begin) / CLOCKS_PER_SEC;
+	// 	begin = clock();
+	// 	// insert stage
+	// 	HASH_BATCH_INSERT(keysStart, valuesStart, chunkSize);
+	// 	elapsedTime = double(clock() - begin) / CLOCKS_PER_SEC;
 		
-		cout << "HASH_BATCH_INSERT, " << chunkSize
-		<< ", " << chunkSize / elapsedTime / 1000000
-		<< ", " << 100.f * HASH_LOAD_FACTOR << endl;
-	}
+	// 	cout << "HASH_BATCH_INSERT, " << chunkSize
+	// 	<< ", " << chunkSize / elapsedTime / 1000000
+	// 	<< ", " << 100.f * HASH_LOAD_FACTOR << endl;
+	// }
 	
-	// perform INSERT for update validation
-	int chunkSizeUpdate = min(256, numKeys);
-	for(int chunkStart = 0; chunkStart < chunkSizeUpdate; chunkStart++) {
-		vecValues[chunkStart] += 1111111 + chunkStart;
-	}
-	int *keyPtr = &vecKeys[0];
-	int *vecPtr = &vecValues[0];
-	HASH_BATCH_INSERT(keyPtr, vecPtr, chunkSizeUpdate);
+	// // perform INSERT for update validation
+	// int chunkSizeUpdate = min(256, numKeys);
+	// for(int chunkStart = 0; chunkStart < chunkSizeUpdate; chunkStart++) {
+	// 	vecValues[chunkStart] += 1111111 + chunkStart;
+	// }
+	// int *keyPtr = &vecKeys[0];
+	// int *vecPtr = &vecValues[0];
+	// HASH_BATCH_INSERT(keyPtr, vecPtr, chunkSizeUpdate);
 	
-	// perform GET and test performance
-	for(int chunkStart = 0; chunkStart < numKeys; chunkStart += chunkSize) {
+	// // perform GET and test performance
+	// for(int chunkStart = 0; chunkStart < numKeys; chunkStart += chunkSize) {
 		
-		int* keysStart = &vecKeys[chunkStart];
+	// 	int* keysStart = &vecKeys[chunkStart];
 
-		begin = clock();
-		// get stage
-		valuesGot = HASH_BATCH_GET(keysStart, chunkSize);
-		elapsedTime = double(clock() - begin) / CLOCKS_PER_SEC;
+	// 	begin = clock();
+	// 	// get stage
+	// 	valuesGot = HASH_BATCH_GET(keysStart, chunkSize);
+	// 	elapsedTime = double(clock() - begin) / CLOCKS_PER_SEC;
 		
-		cout << "HASH_BATCH_GET, " << chunkSize
-		<< ", " << chunkSize / elapsedTime / 1000000
-		<< ", " << 100.f * HASH_LOAD_FACTOR << endl;
+	// 	cout << "HASH_BATCH_GET, " << chunkSize
+	// 	<< ", " << chunkSize / elapsedTime / 1000000
+	// 	<< ", " << 100.f * HASH_LOAD_FACTOR << endl;
 	
-		DIE(valuesGot == NULL, "ERR, ptr valuesCheck cannot be NULL");
+	// 	DIE(valuesGot == NULL, "ERR, ptr valuesCheck cannot be NULL");
 		
-		int mistmatches = 0;
-		for(int i = 0; i < chunkSize; i++) {
-			if(vecValues[chunkStart + i] != valuesGot[i]) {
-				mistmatches++;
-				if(mistmatches < 32) {
-					cout << "Expected " << vecValues[chunkStart + i]
-					<< ", but got " << valuesGot[i] << " for key:" << keysStart[i] << endl;
-				}
-			}
-		}
+	// 	int mistmatches = 0;
+	// 	for(int i = 0; i < chunkSize; i++) {
+	// 		if(vecValues[chunkStart + i] != valuesGot[i]) {
+	// 			mistmatches++;
+	// 			if(mistmatches < 32) {
+	// 				cout << "Expected " << vecValues[chunkStart + i]
+	// 				<< ", but got " << valuesGot[i] << " for key:" << keysStart[i] << endl;
+	// 			}
+	// 		}
+	// 	}
 		
-		if(mistmatches > 0) {
-			cout << "ERR, mistmatches: " << mistmatches << " / " << numKeys << endl;
-			exit(1);
-		}
-	}
+	// 	if(mistmatches > 0) {
+	// 		cout << "ERR, mistmatches: " << mistmatches << " / " << numKeys << endl;
+	// 		exit(1);
+	// 	}
+	// }
 
 	return 0;
 }
