@@ -32,7 +32,6 @@ GpuHashTable::~GpuHashTable() {
 	free(this->table);
 	this->table = NULL;
 
-	cout << "Init is done!\n";
 }
 
 /* RESHAPE HASH
@@ -47,7 +46,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	int idx;
 	int auxidx;
 
-	cout << numKeys;
+	cout << "Adding " << numKeys << " items.\n";
 
 	for (i = 0; i < numKeys; i++) {
 		idx = hash1(keys[i], this->limit);
@@ -56,6 +55,8 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 			this->table[idx].value = (int *) malloc(sizeof(int));
 			memcpy(this->table[idx].key, &keys[i], sizeof(int));
 			memcpy(this->table[idx].value, &values[i], sizeof(int));
+
+			cout << "Adding " << values[i] << " on position " << idx << " for key " << keys[i] << "\n";
 		} else {
 			auxidx = idx;
 			idx = (idx + 1) % this->limit;
@@ -73,6 +74,8 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 			this->table[idx].value = (int *) malloc(sizeof(int));
 			memcpy(this->table[idx].key, &keys[i], sizeof(int));
 			memcpy(this->table[idx].value, &values[i], sizeof(int));
+
+			cout << "Collision: Adding " << values[i] << " on position " << idx << " for key " << keys[i] << "\n";
 		}
 	}
 
