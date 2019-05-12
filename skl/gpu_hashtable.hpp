@@ -78,6 +78,7 @@ int hash3(int data, int limit) {
 typedef struct {
 	int key;
 	int value;
+	int filled;
 } Node;
 
 //
@@ -101,6 +102,7 @@ class GpuHashTable
 	private:
 		Node *table;
 		int limit;
+		int load;
 };
 
 #endif
