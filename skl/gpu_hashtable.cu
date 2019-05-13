@@ -17,7 +17,7 @@ __global__ void init_hashtable(Node *table, int size) {
 	}
 }
 
-__global__ void insert_value(Node *table, int size, int *keys, int *result, int numKeys) {
+__global__ void insert_value(Node *table, int size, int *keys, int *values, int numKeys) {
 	int key_idx = blockIdx.x * blockDim.x + threadIdx.x;
 	int idx;
 	int filled;
@@ -25,7 +25,8 @@ __global__ void insert_value(Node *table, int size, int *keys, int *result, int 
 	if (key_idx >= numKeys)
 		return;
 	
-	idx = hash1(keys[key_idx], size);
+	
+	idx = ((long)abs(keys[key_idx]) * PRIME1) % PRIME2 % size;
 
 	/* Search a free slot using linear probing */
 	filled = atomicCAS(&table[idx].filled, 0, 1);
@@ -53,7 +54,7 @@ __global__ void reshape_map(Node *old_table, Node *new_table, int old_size, int 
 		return;
 	
 	if (old_table[key_idx].filled) {
-		idx = hash1(old_table[key_idx].key, size);
+		idx = ((long)abs(old_table[key_idx].key) * PRIME1) % PRIME2 % new_size;
 
 		filled = atomicCAS(&new_table[idx].filled, 0, 1);
 		while (filled) {
@@ -63,7 +64,7 @@ __global__ void reshape_map(Node *old_table, Node *new_table, int old_size, int 
 				return;
 			}
 
-			idx = (idx + 1) % size;
+			idx = (idx + 1) % new_size;
 			filled = atomicCAS(&new_table[idx].filled, 0, 1);
 		}
 
@@ -72,15 +73,14 @@ __global__ void reshape_map(Node *old_table, Node *new_table, int old_size, int 
 	}
 }
 
-__global__ void get_node(Node *table, int size, int *keys, int *values, int numKeys) {
+__global__ void get_node(Node *table, int size, int *keys, int *result, int numKeys) {
 	int key_idx = blockIdx.x * blockDim.x + threadIdx.x;
 	int idx;
-	int filled;
 
 	if (key_idx >= numKeys)
 		return;
 	
-	idx = hash1(keys[key_idx], size);
+		idx = ((long)abs(keys[key_idx]) * PRIME1) % PRIME2 % size;
 
 	/* Search a free slot using linear probing */
 	while (table[idx].key != keys[key_idx]) {
@@ -93,14 +93,20 @@ __global__ void get_node(Node *table, int size, int *keys, int *values, int numK
 /* INIT HASH
  */
 GpuHashTable::GpuHashTable(int size) {
-	int blocks = numKeys / BLOCKSIZE;
+	int blocks = size / BLOCKSIZE;
 
-	if (numKeys % BLOCKSIZE)
+	if (size % BLOCKSIZE)
 		blocks++;
 
 	cudaSetDevice(0);
 
+	this->table = NULL;
+
 	cudaMallocManaged(&this->table, size * sizeof(Node));
+	if (!this->table) {
+		printf("[INIT][COULD NOT ALLOC MEMORY]\n");
+		exit(-1);
+	}
 	
 	init_hashtable <<<blocks, BLOCKSIZE>>>(this->table, size);
 
@@ -122,23 +128,38 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	Node *new_table;
 	int blocks = numBucketsReshape / BLOCKSIZE;
 
-	if (numKeys % BLOCKSIZE)
+	if (numBucketsReshape % BLOCKSIZE)
 		blocks++;
 
 	cudaMallocManaged(&new_table, numBucketsReshape * sizeof(Node));
+	if (!new_table) {
+		printf("[RESHAPE][COULD NOT ALLOC MEMORY]\n");
+		exit(-1);
+	}
+
+	printf("Initializing new table\n");
 
 	init_hashtable <<<blocks, BLOCKSIZE>>> (this->table, numBucketsReshape);
 
 	cudaDeviceSynchronize();
 
+	printf("Populating new table\n");
+
 	reshape_map <<<blocks, BLOCKSIZE>>> (this->table, new_table, this->limit, numBucketsReshape);
 
 	cudaDeviceSynchronize();
 
+	printf("Removing old table\n");
+
 	cudaFree(this->table);
-	
-	this->table = aux_table;
+
+	this->table = new_table;
 	this->limit = numBucketsReshape;
+}
+
+/* Helper function */
+float checkLoadFactor(float load, float limit) {
+	return load / limit;
 }
 
 /* INSERT BATCH
@@ -149,13 +170,15 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	if (numKeys % BLOCKSIZE)
 		blocks++;
 
-	if (checkLoadFactor((float)(this->load + numKeys), this->limit) >= 0.75)
-		reshape(2 * this->limit);
+	if (checkLoadFactor((float)(this->load + numKeys), this->limit) >= 0.75) {
+		reshape(4 * this->limit);
+		printf("Reshaped: %d\n\n", this->limit);
+	}
 
 	insert_value <<<blocks, BLOCKSIZE>>>(this->table, this->limit, keys, values, numKeys);
 
 	cudaDeviceSynchronize();
-	
+
 	return true;
 }
 
@@ -168,10 +191,14 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	if (numKeys % BLOCKSIZE)
 		blocks++;
 
-	cudaMallocManaged(&result, numKeys * sizeof(Node));
-	if (!result)
-		return NULL;
+	printf("keys: %d\n", numKeys);
 
+	cudaMallocManaged(&result, numKeys * sizeof(int));
+	if (!result) {
+		printf("[GET][COULD NOT ALLOC MEMORY]\n");
+		exit(-1);
+	}
+	
 	get_node <<<blocks, BLOCKSIZE>>> (this->table, this->limit, keys, result, numKeys);
 
 	cudaDeviceSynchronize();
@@ -186,9 +213,7 @@ float GpuHashTable::loadFactor() {
 	return this->load / this->limit;
 }
 
-float checkLoadFactor(float load, float limit) {
-	return load / limit;
-}
+
 
 /*********************************************************/
 

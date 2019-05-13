@@ -5,6 +5,8 @@ using namespace std;
 
 #define	KEY_INVALID		0
 #define BLOCKSIZE 256
+#define PRIME1 3371518343llu
+#define PRIME2 1140272737634240411llu
 
 #define DIE(assertion, call_description) \
 	do {	\
