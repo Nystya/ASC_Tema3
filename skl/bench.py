@@ -53,7 +53,7 @@ testConfig = [
             "HASH_BATCH_INSERT" : {"minThroughput" : 1, "minLoadFactor" : 50, "points" : 2 },
             "HASH_BATCH_GET" : { "minThroughput" : 25, "minLoadFactor" : 50, "points" : 2 },
         }
-     },
+    }
 ]
 
 outfile = open('output', 'w')
