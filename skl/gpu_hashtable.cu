@@ -7,16 +7,6 @@
 
 #include "gpu_hashtable.hpp"
 
-__global__ void init_hashtable(Node *table, int size) {
-	int idx = blockIdx.x * blockDim.x + threadIdx.x;
-
-	if (idx < size) {
-		table[idx].key = 0;
-		table[idx].value = 0;
-		table[idx].filled = 0;
-	}
-}
-
 __global__ void insert_value(Node *table, int size, int *keys, int *values, int numKeys) {
 	int key_idx = blockIdx.x * blockDim.x + threadIdx.x;
 	int idx;
@@ -28,6 +18,7 @@ __global__ void insert_value(Node *table, int size, int *keys, int *values, int 
 	idx = ((long)abs(keys[key_idx]) * PRIME1) % PRIME2 % size;
 
 	/* Search a free slot using linear probing */
+	/* Use atomic operations so that there are no race conditions */
 	filled = atomicCAS(&table[idx].filled, 0, 1);
 	while (filled) {
 		/* If filled with the same key */
@@ -42,8 +33,6 @@ __global__ void insert_value(Node *table, int size, int *keys, int *values, int 
 
 	table[idx].key = keys[key_idx];
 	table[idx].value = values[key_idx];
-
-	// printf("Inserted [%d][%d :: %d][%d]\n", idx, keys[key_idx], values[key_idx], table[idx].filled);
 }
 
 __global__ void reshape_map(Node *old_table, Node *new_table, int old_size, int new_size) {
@@ -54,12 +43,12 @@ __global__ void reshape_map(Node *old_table, Node *new_table, int old_size, int 
 	if (key_idx >= old_size || key_idx >= new_size)
 		return;
 
-	// printf("Checking [%d]\n", key_idx);
-	
+	/* Move values from old hashtable to new hashtable */
 	if (old_table[key_idx].filled) {
-		// printf("Reshaping %d\n", key_idx);
 		idx = ((long)abs(old_table[key_idx].key) * PRIME1) % PRIME2 % new_size;
-
+		
+		/* Search a free slot using linear probing */
+		/* Use atomic operations so that there are no race conditions */
 		filled = atomicCAS(&new_table[idx].filled, 0, 1);
 		while (filled) {
 			/* If filled with the same key */
@@ -74,8 +63,6 @@ __global__ void reshape_map(Node *old_table, Node *new_table, int old_size, int 
 
 		new_table[idx].key = old_table[key_idx].key;
 		new_table[idx].value = old_table[key_idx].value;
-
-		// printf("Reshaped [%d]->[%d][%d :: %d][%d]\n",key_idx, idx, new_table[idx].key, new_table[idx].value, new_table[idx].filled);
 	}
 }
 
@@ -88,12 +75,11 @@ __global__ void get_node(Node *table, int size, int *keys, int *result, int numK
 	
 	idx = ((long)abs(keys[key_idx]) * PRIME1) % PRIME2 % size;
 
-	/* Search a free slot using linear probing */
+	/* Search value for key using linear probing */
 	while (table[idx].key != keys[key_idx]) {
 		idx = (idx + 1) % size;
 	}
 
-	// printf("[GETNODE][%d]->[%d][%d :: %d]\n", key_idx, idx, keys[key_idx], table[idx].value);
 	result[key_idx] = table[idx].value;
 }
 
@@ -105,8 +91,6 @@ GpuHashTable::GpuHashTable(int size) {
 	if (size % BLOCKSIZE)
 		blocks++;
 
-	// cudaSetDevice(0);
-
 	this->table = NULL;
 
 	cudaMalloc(&this->table, size * sizeof(Node));
@@ -115,7 +99,6 @@ GpuHashTable::GpuHashTable(int size) {
 		exit(-1);
 	}
 	
-	// init_hashtable <<<blocks, BLOCKSIZE>>>(this->table, size);
 	cudaMemset(this->table, 0, size * sizeof(Node));
 
 	this->limit = size;
@@ -138,19 +121,18 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 	if (numBucketsReshape % BLOCKSIZE)
 		blocks++;
 
+	/* I need a new table */
 	cudaMallocManaged(&new_table, numBucketsReshape * sizeof(Node));
 	if (!new_table) {
 		printf("[RESHAPE][COULD NOT ALLOC MEMORY]\n");
 		exit(-1);
 	}
 
-	// printf("Initializing new table\n");
-
+	/* Init the new table */
 	cudaMemset(new_table, 0, numBucketsReshape * sizeof(Node));
 	cudaDeviceSynchronize();
 
-	// printf("Populating new table\n");
-
+	/* Move values from old hashtable to the new one */
 	reshape_map <<<blocks, BLOCKSIZE>>> (this->table, new_table, this->limit, numBucketsReshape);
 
 	cudaDeviceSynchronize();
@@ -159,8 +141,7 @@ void GpuHashTable::reshape(int numBucketsReshape) {
 		exit(-1);
 	}
 
-	// printf("Removing old table\n");
-
+	/* Free memory for old hashtable */
 	cudaFree(this->table);
 
 	this->table = new_table;
@@ -181,24 +162,28 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	if (numKeys % BLOCKSIZE)
 		blocks++;
 
+	/* Check load factor to see if it is needed to reshape */
 	if (checkLoadFactor((float)(this->load + numKeys), this->limit) >= 0.75) {
 		reshape(1.5 * this->limit);
-		// printf("Reshaped: %d\n\n", this->limit);
 	}
 
+	/* Keys sent to kernel must be in VRAM */
 	cudaMalloc(&gpukeys, numKeys * sizeof(int));
 	if (!gpukeys) {
 		printf("GPU keys fail\n");
 	}
 
+	/* Values sent to kernel must be in VRAM */
 	cudaMalloc(&gpuvalues, numKeys * sizeof(int));
 	if (!gpukeys) {
 		printf("GPU values fail\n");
 	}
 
+	/* Move keys and values from RAM to VRAM */
 	cudaMemcpy(gpukeys, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 	cudaMemcpy(gpuvalues, values, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 
+	/* Compute index and store data in hashtable */
 	insert_value <<<blocks, BLOCKSIZE>>>(this->table, this->limit, gpukeys, gpuvalues, numKeys);
 	cudaDeviceSynchronize();
 
@@ -206,7 +191,7 @@ bool GpuHashTable::insertBatch(int *keys, int* values, int numKeys) {
 	cudaFree(gpuvalues);
 
 	this->load += numKeys;
-	
+
 	return true;
 }
 
@@ -221,32 +206,39 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
 	if (numKeys % BLOCKSIZE)
 		blocks++;
 
-	// printf("keys: %d\n", numKeys);
-
+	/* Result has to be in RAM */
 	result = (int *) malloc (numKeys * sizeof(int));
 	if (!result) {
 		printf("[GET1][COULD NOT ALLOC MEMORY]\n");
 		exit(-1);
 	}
 	
+	/* Keys sent to kernel must be in VRAM */
 	cudaMalloc(&gpukeys, numKeys * sizeof(int));
 	if (!gpukeys) {
 		printf("GPU keys fail\n");
 	}
 
+	/* Move keys from host to device */
 	cudaMemcpy(gpukeys, keys, numKeys * sizeof(int), cudaMemcpyHostToDevice);
 
+	/* Kernel operations must be done in VRAM */
 	cudaMalloc(&gpuresult, numKeys * sizeof(int));
 	if (!gpuresult) {
 		printf("[GET2][COULD NOT ALLOC MEMORY]\n");
 		exit(-1);
 	}
 	
+	/* Find results in hashtable */
 	get_node <<<blocks, BLOCKSIZE>>> (this->table, this->limit, gpukeys, gpuresult, numKeys);
 
 	cudaDeviceSynchronize();
 
+	/* Move results from VRAM to RAM */
 	cudaMemcpy(result, gpuresult, numKeys * sizeof(int), cudaMemcpyDeviceToHost);
+
+	cudaFree(gpukeys);
+	cudaFree(gpuresult);
 
 	return result;
 }
@@ -255,10 +247,8 @@ int* GpuHashTable::getBatch(int* keys, int numKeys) {
  * num elements / hash total slots elements
  */
 float GpuHashTable::loadFactor() {
-	// printf("[LOADFACT][%f]\n", (float)this->load / this->limit);
 	return (float)this->load / this->limit;
 }
-
 
 
 /*********************************************************/
